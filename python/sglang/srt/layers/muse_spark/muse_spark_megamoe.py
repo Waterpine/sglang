@@ -351,21 +351,34 @@ def forward_megamoe(layer, hidden_states, topk_scores, topk_ids, post_expert_nor
     buf = _get_symm_buffer(layer, _get_ep_group(), capacity, hidden_states.device)
     mma_type = layer._megamoe_mma_type
     if mma_type == "nvfp4xnvfp4" and n:
+        from sglang.kernels.ops.moe.muse_spark_megamoe_nvfp4_pre_dispatch import (
+            can_pre_dispatch_nvfp4,
+            pre_dispatch_nvfp4,
+        )
+
+        x = hidden_states.contiguous()
+        ids = topk_ids.to(torch.int32).contiguous()
+        scores = topk_scores.float().contiguous()
         # Quantization also invalidates every padded routing row, including
         # rows left by a previous larger batch in this shared symmetric buffer.
-        deep_gemm.mega_moe_pre_dispatch(
-            hidden_states.contiguous(),
-            topk_ids.to(torch.int32).contiguous(),
-            topk_scores.float().contiguous(),
-            buf.x,
-            buf.x_sf,
-            buf.topk_idx,
-            buf.topk_weights,
-            n,
-            group_size=16,
-            mma_type=mma_type,
-            buf_x_scales=buf.x_scales,
-        )
+        staged = (buf.x, buf.x_sf, buf.x_scales, buf.topk_idx, buf.topk_weights)
+        if can_pre_dispatch_nvfp4(x, ids, scores, *staged):
+            # Same bytes as DeepGEMM's kernel, one warp group per token.
+            pre_dispatch_nvfp4(x, ids, scores, *staged)
+        else:
+            deep_gemm.mega_moe_pre_dispatch(
+                x,
+                ids,
+                scores,
+                buf.x,
+                buf.x_sf,
+                buf.topk_idx,
+                buf.topk_weights,
+                n,
+                group_size=16,
+                mma_type=mma_type,
+                buf_x_scales=buf.x_scales,
+            )
     else:
         # DeepGEMM's quantizing pre-dispatch API explicitly rejects BF16 MMA.
         # copy_ handles route dtype conversion and noncontiguous input shards.

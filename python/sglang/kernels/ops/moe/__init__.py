@@ -273,6 +273,16 @@ for _bk in ("torch", "jit", "triton"):
 del _bk
 register_kernel(
     KernelSpec(
+        op="moe.muse_spark_megamoe_nvfp4_pre_dispatch",
+        backend=KernelBackend.CUTE_DSL,
+        target="sglang.kernels.ops.moe.muse_spark_megamoe_nvfp4_pre_dispatch:pre_dispatch_nvfp4",
+        capabilities=frozenset(
+            {CapabilityRequirement.cuda(min_sm=(10, 0), max_sm=(10, 9))}
+        ),
+    )
+)
+register_kernel(
+    KernelSpec(
         op="moe.muse_spark_post_expert_finalize",
         backend=KernelBackend.TRITON,
         target="sglang.kernels.ops.moe.muse_spark_post_expert_finalize_triton:fused_post_expert_norm_weighted_sum",

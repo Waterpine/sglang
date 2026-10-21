@@ -357,6 +357,7 @@ def _module_defines(module: str, attr: str) -> bool:
         ("layernorm.muse_spark_norm_gate", {"torch", "jit", "helion", "triton"}),
         ("layernorm.muse_spark_norm_residual", {"torch", "jit", "triton"}),
         ("layernorm.muse_spark_rmsnorm_nvfp4_quant", {"torch", "jit", "helion"}),
+        ("moe.muse_spark_megamoe_nvfp4_pre_dispatch", {"cute_dsl"}),
         ("moe.muse_spark_routing", {"torch", "jit", "triton"}),
         ("moe.muse_spark_post_expert_finalize", {"triton"}),
     ],
